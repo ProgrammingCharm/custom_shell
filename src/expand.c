@@ -174,6 +174,7 @@ expand_parameters(char **word)
         param = scan;
         for (; *scan && (isalpha(*scan) || isdigit(*scan) || *scan == '_');
              ++scan);
+        if (scan == param) continue; 
         param = strndup(param, scan - param);
         if (!param) err(1, 0);
       }

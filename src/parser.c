@@ -144,8 +144,7 @@ discard_whitespace(char const **s)
   for (; isblank(**s); ++*s) {
   }
   if (**s == '#') {
-    for (; **s && **s != '\n'; ++*s)
-      ;
+    for (; **s && **s != '\n'; ++*s);
   }
 }
 
@@ -330,8 +329,7 @@ match_assignment(char const **s, struct assignment **assn)
   // name: /[A-z_][A-z0-9_]*/
   if (!isalpha(name[0]) && name[0] != '_') goto match_fail;
 
-  for (; isalnum(*c) || *c == '_'; ++c)
-    ;
+  for (; isalnum(*c) || *c == '_'; ++c);
   a.name = strndup(name, c - name);
   if (!a.name) {
     retval = -1;
@@ -545,13 +543,15 @@ command_list_parse(struct command_list **cl, FILE *stream)
       char *s_copy = strdup(s);
       if (s_copy) {
         if (expand_prompt(&s_copy)) {
-          char prefix[] = "\n=== [BIGSHELL] ===";
-          write(fileno(stream), prefix, sizeof prefix - 1);
+          char prefix[] = "\n=== [BIGSHELL] ===\n";
+          write(fileno(stream),
+                prefix,
+                sizeof prefix - (s_copy[0] != '\n' ? 1 : 2));
           write(fileno(stream), s_copy, strlen(s_copy));
         }
       }
       free(s_copy);
-    } 
+    }
     line_length = getline(&line, &n, stream);
     if (line_length < 0) {
       if (feof(stream)) {

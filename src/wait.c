@@ -22,10 +22,12 @@ wait_on_fg_pgid(pid_t const pgid)
   /* TODO send the "continue" signal to the process group 'pgid'
    * XXX review kill(2)
    */
+  kill(-pgid, SIGCONT);
 
   if (is_interactive) {
     /* TODO make 'pgid' the foreground process group
      * XXX review tcsetpgrp(3) */
+    tcsetpgrp(STDIN_FILENO, pgid);
   }
 
   /* XXX From this point on, all exit paths must account for setting bigshell
@@ -43,7 +45,7 @@ wait_on_fg_pgid(pid_t const pgid)
   for (;;) {
     /* Wait on ALL processes in the process group 'pgid' */
     int status;
-    pid_t res = waitpid(/* TODO */ 0, &status, 0);
+    pid_t res = waitpid(-pgid, &status, 0); /* first argument set to -pgid */
     if (res < 0) {
       /* Error occurred (some errors are ok, see below)
        *
@@ -54,11 +56,13 @@ wait_on_fg_pgid(pid_t const pgid)
         errno = 0;
         if (jobs_get_status(jid, &status) < 0) goto err;
         if (WIFEXITED(status)) {
+          params.status = WEXITSTATUS(status);
           /* TODO set params.status to the correct value */
         } else if (WIFSIGNALED(status)) {
+          params.status = WTERMSIG(status);
           /* TODO set params.status to the correct value */
         }
-
+        jobs_remove_pgid(pgid);
         /* TODO remove the job for this group from the job list
          *  see jobs.h
          */
@@ -75,7 +79,7 @@ wait_on_fg_pgid(pid_t const pgid)
     /* TODO handle case where a child process is stopped
      *  The entire process group is placed in the background
      */
-    if (/* TODO */ 0) {
+    if (WIFSTOPPED(status)) { /* WIFSTOPPED(status) macro check for if condition */
       fprintf(stderr, "[%jd] Stopped\n", (intmax_t)jid);
       goto out;
     }
@@ -90,6 +94,8 @@ out:
   }
 
   if (is_interactive) {
+    pid_t bigshell_pgid = getpgrp(); /* Have to get the pid_t of bigshell, tcgetpgrp() returns a pid_t */
+    tcsetpgrp(STDIN_FILENO, bigshell_pgid); /* I can now set bigshell as the foreground process group */
     /* TODO make bigshell the foreground process group again
      * XXX review tcsetpgrp(3)
      *
@@ -123,7 +129,7 @@ wait_on_bg_jobs()
        * XXX make sure to do a nonblocking wait!
        */
       int status;
-      pid_t pid = waitpid(0, &status, 0);
+      pid_t pid = waitpid(pgid, &status, WNOHANG); /* pgid for first and third is signal WNOHANG */
       if (pid == 0) {
         /* Unwaited children that haven't exited */
         break;

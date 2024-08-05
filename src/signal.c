@@ -39,8 +39,24 @@ signal_init(void)
    * e.g. sigaction(SIGNUM, &new_handler, &saved_old_handler);
    *
    * */
-  errno = ENOSYS; /* not implemented */
-  return -1;
+  struct sigaction new_action;
+
+  /* Initialize new_action as a struct sigaction */
+  new_action.sa_handler = SIG_IGN;
+  sigemptyset(&new_action.sa_mask);
+  new_action.sa_flags = 0;
+  /*At first, ignore SIGTSTP, SIGINT, SIGTTOU */
+  if (sigaction(SIGTSTP, &new_action, &old_sigtstp) < 0) {
+    return -1;
+  }
+  if (sigaction(SIGINT, &new_action, &old_sigint) < 0) {
+    return -1;
+  }
+  if (sigaction(SIGTTOU, &new_action, &old_sigttou) < 0) {
+    return -1;
+  }
+  /*errno = ENOSYS;*/ /* not implemented */
+  return 0;
 }
 
 /** enable signal to interrupt blocking syscalls (read/getline, etc) 
@@ -53,8 +69,18 @@ int
 signal_enable_interrupt(int sig)
 {
   /* TODO set the signal disposition for signal to interrupt  */
-  errno = ENOSYS; /* not implemented */
-  return -1;
+  struct sigaction new_action;
+  /* Initialized new_action, a struct variable, to try and interrupt system call */
+  new_action.sa_handler = interrupting_signal_handler;
+  sigemptyset(&new_action.sa_mask);
+  new_action.sa_flags = 0;
+
+  /* Try and st the signal disposition, if a failure occure handle */
+  if (sigaction(sig, &new_action, NULL) < 0) {
+    return -1;
+  }
+  /*errno = ENOSYS;*/ /* not implemented */
+  return 0;
 }
 
 /** ignore a signal
@@ -67,8 +93,26 @@ int
 signal_ignore(int sig)
 {
   /* TODO set the signal disposition for signal back to its old state */
-  errno = ENOSYS; /* not implemented */
-  return -1;
+  struct sigaction old_action; 
+  switch (sig) { /* First try and restore old signal disposition */
+    case SIGTSTP:
+      old_action = old_sigtstp;
+      break;
+    case SIGINT:
+      old_action = old_sigint;
+      break;
+    case SIGTTOU:
+      old_action = old_sigttou;
+      break;
+    default:
+      errno = EINVAL;
+      return -1;
+  }
+  if (sigaction(sig, &old_action, NULL) < 0) {
+    return -1;
+  }
+  /*errno = ENOSYS;*/ /* not implemented */
+  return 0;
 }
 
 /** Restores signal dispositions to what they were when bigshell was invoked
@@ -84,6 +128,15 @@ signal_restore(void)
    * e.g. sigaction(SIGNUM, &saved_old_handler, NULL);
    *
    * */
-  errno = ENOSYS; /* not implemented */
-  return -1;
+  if (sigaction(SIGTSTP, &old_sigtstp, NULL) < 0) {
+    return -1;
+  }
+  if (sigaction(SIGINT, &old_sigint, NULL) < 0) {
+    return -1;
+  }
+  if (sigaction(SIGTTOU, &old_sigttou, NULL) < 0) {
+    return -1;
+  }
+  /*errno = ENOSYS;*/ /* not implemented */
+  return 0;
 }

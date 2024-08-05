@@ -91,11 +91,28 @@ builtin_cd(struct command *cmd, struct builtin_redir const *redir_list)
   }
   /*TODO: Implement cd with arguments 
    */
+  if (cmd->word_count == 2){
+    target_dir = (cmd->words[1]);
+  }
+  if (cmd->word_count > 2){
+    dprintf(get_pseudo_fd(redir_list, STDERR_FILENO), "cd: too many arguments\n");
+    return -1;
+  }
+  if (chdir(target_dir) != 0){
+    dprintf(get_pseudo_fd(redir_list, STDERR_FILENO), "cd: no such file or directory: %s\n", target_dir);
+    return -1;
+  }
   chdir(target_dir);
+  vars_set("PWD", target_dir);
   return 0;
+  /*
+  *chdir(target_dir);
+  *return 0;
+  */
 }
 
-/** exits smallsh
+
+/* exits smallsh
  *
  * @returns -1 on failure, otherwise exits the program
  *
@@ -110,8 +127,22 @@ static int
 builtin_exit(struct command *cmd, struct builtin_redir const *redir_list)
 {
   /* TODO: Set params.status to the appropriate value before exiting */
+  if (cmd->word_count >= 2){
+    if (cmd->word_count > 2){
+      dprintf(get_pseudo_fd(redir_list, STDERR_FILENO), "exit: too many arguments\n");
+      return -1;
+    }
+    char *end = NULL;
+    int exit_status_num = 0;
+    exit_status_num = strtol(cmd->words[1], &end, 10);
+    if (end == NULL || *end != '\0'){
+      dprintf(get_pseudo_fd(redir_list, STDERR_FILENO), "exit: invalid argument: %s\n", cmd->words[1]);
+      return -1;
+    }
+    params.status = (int)exit_status_num;
+  }
   bigshell_exit();
-  return -1;
+  return 0;
 }
 
 /** exports variables to the environment
@@ -151,6 +182,7 @@ builtin_unset(struct command *cmd, struct builtin_redir const *redir_list)
 {
   for (size_t i = 1; i < cmd->word_count; ++i) {
     /* TODO: Unset variables */
+    vars_unset(cmd->words[i]);
   }
   return 0;
 }

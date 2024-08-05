@@ -43,7 +43,13 @@ expand_command_words(struct command *cmd)
     expand(&cmd->words[i]);
   }
   /* TODO Assignment values */
+  for (size_t i = 0; i < cmd->assignment_count; ++i){
+    expand(&cmd->assignments[i]->value);
+  }
   /* TODO I/O Filenames */
+  for (size_t i = 0; i < cmd->io_redir_count; ++i){
+    expand(&cmd->io_redirs[i]->filename);
+  }
   return 0;
 }
 
@@ -62,6 +68,14 @@ do_variable_assignment(struct command const *cmd, int export_all)
     struct assignment *a = cmd->assignments[i];
     /* TODO Assign */
     /* TODO Export (if export_all != 0) */
+    if (vars_set(a->name, a->value) != 0){
+      goto err;
+    }
+    if (export_all != 0){
+      if (vars_export(a->name) != 0){
+        goto err;
+      }
+    }
   }
   return 0;
 }
@@ -101,20 +115,20 @@ get_io_flags(enum io_operator io_op)
   switch (io_op) {
     case OP_LESSAND: /* <& */
     case OP_LESS:    /* < */
-      flags = 0;     /* TODO */
+      flags = O_RDONLY;     /* TODO */
       break;
     case OP_GREATAND: /* >& */
     case OP_GREAT:    /* > */
-      flags = 0;      /* TODO */
+      flags = O_WRONLY | O_CREAT | O_EXCL;      /* TODO */
       break;
     case OP_DGREAT: /* >> */
-      flags = 0;    /* TODO */
+      flags = O_WRONLY | O_CREAT | O_APPEND;    /* TODO */
       break;
     case OP_LESSGREAT: /* <> */
-      flags = 0;       /* TODO */
+      flags = O_RDWR;       /* TODO */
       break;
     case OP_CLOBBER: /* >| */
-      flags = 0;     /* TODO */
+      flags = O_WRONLY | O_CREAT | O_TRUNC;     /* TODO */
       break;
   }
   return flags;
@@ -135,7 +149,9 @@ move_fd(int src, int dst)
 {
   if (src == dst) return dst;
   /* TODO move src to dst */
+  if (dup2(src, dst) == -1) return -1;
   /* TODO close src */
+  close(src);
   return dst;
 }
 
@@ -285,6 +301,7 @@ do_io_redirects(struct command *cmd)
          *
          * XXX What is n? Look for it in `struct io_redir->???` (parser.h)
          */
+        if (close(r->io_number) == -1) goto err;
       } else {
         /* The filename is interpreted as a file descriptor number to
          * redirect to. For example, 2>&1 duplicates file descriptor 1
@@ -306,6 +323,9 @@ do_io_redirects(struct command *cmd)
                                  downcasting */
         ) {
           /* TODO duplicate src to dst. */
+          int src = (int)src; /* Thought I should cast long src to int src to be used by dup2() */
+          int dst; /* dst needs to be an int so I can use dup2() and move_fd() which take ints */
+          if (dup2(src, dst) == -1) goto err;
         } else {
           /* XXX Syntax error--(not a valid number)--we can "recover" by
            * attempting to open a file instead. That's what bash does.
@@ -319,6 +339,8 @@ do_io_redirects(struct command *cmd)
     file_open:;
       int flags = get_io_flags(r->io_op);
       gprintf("attempting to open file %s with flags %d", r->filename, flags);
+      int opened_fd = open(r->filename, flags, 0644);
+      if (opened_fd == -1) goto err;
       /* TODO Open the specified file with the appropriate flags and mode
        *
        * XXX Note: you can supply a mode to open() even if you're not creating a
@@ -327,9 +349,12 @@ do_io_redirects(struct command *cmd)
 
       /* TODO Move the opened file descriptor to the redirection target */
       /* XXX use move_fd() */
+      int dst; /* Declared dst again here, also on line 313 before dup2 */
+      if (move_fd(opened_fd, dst) == -1) goto err;
     }
     if (0) {
     err: /* TODO Anything that can fail should jump here. No silent errors!!! */
+         /* I don't actually know if anything needs to be added here, I think its something that I just need to ensure I jump to throughout the redirection process? */
       status = -1;
     }
   }
@@ -386,9 +411,8 @@ run_command_list(struct command_list *cl)
      * [TODO] Update upstream_pipefd initializer to get the (READ) side of the
      *        pipeline saved from the previous command
      */
-    int const upstream_pipefd = -1;
+    int const upstream_pipefd = pipeline_data.pipe_fd; /*Updated this with pipeline_data.pipe_fd as opposed to -1 */
     int const has_upstream_pipe = (upstream_pipefd >= 0);
-
     /* If the current command is a pipeline command, create a new pipe on
      * pipe_fds[].
      *
@@ -407,14 +431,19 @@ run_command_list(struct command_list *cl)
      * [TODO] Handle errors that occur
      */
     int pipe_fds[2] = {-1, -1};
-
+    if (!is_pl){
+      pipeline_data.pipe_fd = -1;
+    }
+    if (pipe(pipe_fds) < 0){
+      goto err; 
+    }
     /* Grab the WRITE side of the pipeline we just created */
-    int const downstream_pipefd = pipe_fds[STDOUT_FILENO];
+    int const downstream_pipefd = pipe_fds[1];
     int const has_downstream_pipe = (downstream_pipefd >= 0);
+    /*Store the READ side of the pipeline we just created. The next command will need to use this. */
+    pipeline_data.pipe_fd = pipe_fds[0];
+    
 
-    /* Store the READ side of the pipeline we just created. The next command
-     * will need to use this */
-    pipeline_data.pipe_fd = pipe_fds[STDIN_FILENO];
 
     /* Check if we have a builtin -- returns a function pointer of the builtin
      * function if we do, null if we don't */
@@ -429,7 +458,7 @@ run_command_list(struct command_list *cl)
      * [TODO] Re-assign child_pid to the new process id
      * [TODO] Handle errors if they occur
      */
-    int const did_fork = 0; /* TODO */
+    int const did_fork = !is_builtin || !is_fg; /* TODO */ /* Only setting did_fork to 1 if its not a builtin or if its not a foreground */
     if (did_fork) {
       /* [TODO] fork */
 
@@ -447,6 +476,10 @@ run_command_list(struct command_list *cl)
        * it in both the parent and the child, and ignore an EACCES error if it
        * occurs.
        */
+      child_pid = fork(); /* its not a builtin or its a foreground, assign the pid to child_pid */
+      if (child_pid < 0){ /* if there is an error in the forking process, goto err code label */
+        goto err;
+      }
 
       if (setpgid(child_pid, pipeline_data.pgid) < 0) {
         if (errno == EACCES) errno = 0;
@@ -518,6 +551,17 @@ run_command_list(struct command_list *cl)
          *
          * [TODO] move downstream_pipefd to STDOUT_FILENO if it's valid
          */
+                                    
+        if (upstream_pipefd >= 0){                            /* move_fd helps here, handle errors. */
+          if (move_fd(upstream_pipefd, STDIN_FILENO) < 0){
+            goto err;
+          }
+        }
+        if (downstream_pipefd >= 0){
+          if (move_fd(downstream_pipefd, STDOUT_FILENO) < 0){
+            goto err;
+          }
+        }
 
         /* Now handle the remaining redirect operators from the command. */
         if (do_io_redirects(cmd) < 0) err(1, 0);
@@ -541,7 +585,7 @@ run_command_list(struct command_list *cl)
          *
          *  XXX Note: cmd->words is a null-terminated array of strings. Nice!
          */
-
+        execvp(cmd->words[0], cmd->words);
         err(127, 0); /* Exec failure -- why might this happen? */
         assert(0);   /* UNREACHABLE -- This should never be reached ABORT! */
       }

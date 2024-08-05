@@ -69,14 +69,14 @@ int
 signal_enable_interrupt(int sig)
 {
   /* TODO set the signal disposition for signal to interrupt  */
-  struct sigaction new_action;
+  /*struct sigaction new_action;*/
   /* Initialized new_action, a struct variable, to try and interrupt system call */
-  new_action.sa_handler = interrupting_signal_handler;
-  sigemptyset(&new_action.sa_mask);
-  new_action.sa_flags = 0;
+  /*new_action.sa_handler = interrupting_signal_handler;*/
+  /*sigemptyset(&new_action.sa_mask);*/
+  /*new_action.sa_flags = 0;*/
 
   /* Try and st the signal disposition, if a failure occure handle */
-  if (sigaction(sig, &new_action, NULL) < 0) {
+  if (sigaction(sig, &interrupt_action, 0) < 0) {
     return -1;
   }
   /*errno = ENOSYS;*/ /* not implemented */
@@ -108,7 +108,7 @@ signal_ignore(int sig)
       errno = EINVAL;
       return -1;
   }
-  if (sigaction(sig, &old_action, NULL) < 0) {
+  if (sigaction(sig, &old_action, 0) < 0) {
     return -1;
   }
   /*errno = ENOSYS;*/ /* not implemented */
@@ -128,13 +128,13 @@ signal_restore(void)
    * e.g. sigaction(SIGNUM, &saved_old_handler, NULL);
    *
    * */
-  if (sigaction(SIGTSTP, &old_sigtstp, NULL) < 0) {
+  if (sigaction(SIGTSTP, &old_sigtstp, 0) < 0) {
     return -1;
   }
-  if (sigaction(SIGINT, &old_sigint, NULL) < 0) {
+  if (sigaction(SIGINT, &old_sigint, 0) < 0) {
     return -1;
   }
-  if (sigaction(SIGTTOU, &old_sigttou, NULL) < 0) {
+  if (sigaction(SIGTTOU, &old_sigttou, 0) < 0) {
     return -1;
   }
   /*errno = ENOSYS;*/ /* not implemented */

@@ -69,11 +69,13 @@ do_variable_assignment(struct command const *cmd, int export_all)
     /* TODO Assign */
     /* TODO Export (if export_all != 0) */
     if (vars_set(a->name, a->value) != 0){
-      goto err;
+      /*goto err; goto err can only be done where the label is defined */
+      return -1;
     }
     if (export_all != 0){
       if (vars_export(a->name) != 0){
-        goto err;
+        /*goto err;*/
+        return -1;
       }
     }
   }

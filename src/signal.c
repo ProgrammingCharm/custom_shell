@@ -39,20 +39,19 @@ signal_init(void)
    * e.g. sigaction(SIGNUM, &new_handler, &saved_old_handler);
    *
    * */
-  struct sigaction new_action;
 
   /* Initialize new_action as a struct sigaction */
-  new_action.sa_handler = SIG_IGN;
-  sigemptyset(&new_action.sa_mask);
-  new_action.sa_flags = 0;
+  /*new_action.sa_handler = SIG_IGN;*/
+  /*sigemptyset(&new_action.sa_mask);*/
+  /*new_action.sa_flags = 0; */
   /*At first, ignore SIGTSTP, SIGINT, SIGTTOU */
-  if (sigaction(SIGTSTP, &new_action, &old_sigtstp) < 0) {
+  if (sigaction(SIGTSTP, &ignore_action, &old_sigtstp) < 0) {
     return -1;
   }
-  if (sigaction(SIGINT, &new_action, &old_sigint) < 0) {
+  if (sigaction(SIGINT, &ignore_action, &old_sigint) < 0) {
     return -1;
   }
-  if (sigaction(SIGTTOU, &new_action, &old_sigttou) < 0) {
+  if (sigaction(SIGTTOU, &ignore_action, &old_sigttou) < 0) {
     return -1;
   }
   /*errno = ENOSYS;*/ /* not implemented */
@@ -92,23 +91,22 @@ signal_enable_interrupt(int sig)
 int
 signal_ignore(int sig)
 {
-  /* TODO set the signal disposition for signal back to its old state */
-  struct sigaction old_action; 
+  /* TODO set the signal disposition for signal back to its old state */ 
   switch (sig) { /* First try and restore old signal disposition */
     case SIGTSTP:
-      old_action = old_sigtstp;
+      ignore_action = old_sigtstp;
       break;
     case SIGINT:
-      old_action = old_sigint;
+      ignore_action = old_sigint;
       break;
     case SIGTTOU:
-      old_action = old_sigttou;
+      ignore_action = old_sigttou;
       break;
     default:
       errno = EINVAL;
       return -1;
   }
-  if (sigaction(sig, &old_action, 0) < 0) {
+  if (sigaction(sig, &ignore_action, 0) < 0) {
     return -1;
   }
   /*errno = ENOSYS;*/ /* not implemented */

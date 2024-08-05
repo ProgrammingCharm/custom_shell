@@ -45,7 +45,7 @@ wait_on_fg_pgid(pid_t const pgid)
   for (;;) {
     /* Wait on ALL processes in the process group 'pgid' */
     int status;
-    pid_t res = waitpid(-pgid, &status, 0); /* first argument set to -pgid */
+    pid_t res = waitpid(-pgid, &status, WUNTRACED); /* first argument set to -pgid */
     if (res < 0) {
       /* Error occurred (some errors are ok, see below)
        *
@@ -59,7 +59,7 @@ wait_on_fg_pgid(pid_t const pgid)
           params.status = WEXITSTATUS(status);
           /* TODO set params.status to the correct value */
         } else if (WIFSIGNALED(status)) {
-          params.status = WTERMSIG(status);
+          params.status = WTERMSIG(status) + 128;
           /* TODO set params.status to the correct value */
         }
         jobs_remove_pgid(pgid);

@@ -433,17 +433,14 @@ run_command_list(struct command_list *cl)
      * [TODO] Handle errors that occur
      */
     int pipe_fds[2] = {-1, -1};
-    if (!is_pl){
-      pipeline_data.pipe_fd = -1;
-    }
     if (pipe(pipe_fds) < 0){
       goto err; 
     }
     /* Grab the WRITE side of the pipeline we just created */
-    int const downstream_pipefd = pipe_fds[1];
+    int const downstream_pipefd = pipe_fds[STDOUT_FILENO];
     int const has_downstream_pipe = (downstream_pipefd >= 0);
     /*Store the READ side of the pipeline we just created. The next command will need to use this. */
-    pipeline_data.pipe_fd = pipe_fds[0];
+    pipeline_data.pipe_fd = pipe_fds[STDIN_FILENO];
     
 
 

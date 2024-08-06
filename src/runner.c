@@ -434,7 +434,9 @@ run_command_list(struct command_list *cl)
      */
     int pipe_fds[2] = {-1, -1}; 
     if (is_pl){ /* Added this check, and only create a new pipe if current command is a pipeline */
+      /*dprintf(get_pseudo_fd(redir_list, STDERR_FILENO), "Error when creating pipe: %\n", strerror(errno));*/
       if (pipe(pipe_fds) < 0){
+        fprintf(stderr, "Error creating pipe: %s\n", strerror(errno));
         goto err;
       }
     }
@@ -442,7 +444,9 @@ run_command_list(struct command_list *cl)
     int const downstream_pipefd = pipe_fds[STDOUT_FILENO]; 
     int const has_downstream_pipe = (downstream_pipefd >= 0);
     /*Store the READ side of the pipeline we just created. The next command will need to use this. */
-    pipeline_data.pipe_fd = pipe_fds[STDIN_FILENO];
+    fprintf(stdout, "Pipe created: read_fd=%d, write_fd%d\n", pipe_fds[0], pipe_fds[1]);
+    /* dprintf(get_pseudo_fd(redir_list, STDERR_FILENO), "Pipe successfully created: read_fd=%d, write_fd=%d\n", pipe_fds[0], pipe_fds[1]); */
+    pipeline_data.pipe_fd = pipe_fds[STDIN_FILENO]; 
     
 
 
@@ -554,12 +558,20 @@ run_command_list(struct command_list *cl)
          */
                                     
         if (has_upstream_pipe){                            /* move_fd helps here, handle errors. */
+          fprintf(stdout, "Redircting stdin from pipe_fd=%d\n", upstream_pipefd);
+          /*dprintf(get_pseudo_fd(redir_list, STDERR_FILENO), ".. redirecting stdin from pipe_fd=%d\n", upstream_pipefd);*/
           if (move_fd(upstream_pipefd, STDIN_FILENO) < 0){ /* Trying has_upstream_pipe instead of other var */
+            fprintf(stderr, "error redirecting stdin: %s\n", strerror(errno));
+            /*dprintf(get_pseudo_fd(redir_list, STDERR_FILENO), "Error with redirecting stdin: %s\n", strerror(errno));*/
             goto err;
           }
         }
         if (has_downstream_pipe){
+          fprintf(stdout, "redirecting stdout to pipe_fd=%d\n", downstream_pipefd);
+          /*dprintf(get_pseudo_fd(redir_list, STDERR_FILENO), ".. redirecting stdout from pipe_fd=%d\n", downstream_pipefd);*/
           if (move_fd(downstream_pipefd, STDOUT_FILENO) < 0){
+            fprintf(stderr, "error redirecting stdout: %s\n", strerror(errno));
+            /*dprintf(get_pseudo_fd(redir_list, STDERR_FILENO), "Error with redirecting stdout: %s\n", strerror(errno));*/
             goto err;
           }
         }
@@ -586,7 +598,13 @@ run_command_list(struct command_list *cl)
          *
          *  XXX Note: cmd->words is a null-terminated array of strings. Nice!
          */
+        /*dprintf(get_pseudo_fd(redir_list, STDERR_FILENO), "Executing the command: %s\n", cmd->words[0]);*/
+        fprintf(stdout, "Executing the command: %s\n", cmd->words[0]);
+        fprintf(stdout, "stdin=%d, stdout_fd=%d\n", STDIN_FILENO, STDOUT_FILENO);
+        /*dprintf(get_pseudo_fd(redir_list, STDERR_FILENO), "stdin_fd=%d. stdoun_fd=%d\n", get_pseudo_fd(redir_list, STDIN_FILENO), get_pseudo_fd(redir_list, STDOUT_FILENO));*/
         execvp(cmd->words[0], cmd->words);
+        fprintf(stderr, "Error executing the command: %s\n", strerror(errno));
+        /*dprintf(get_pseudo_fd(redir_list, STDERR_FILENO), ".. error executing the command: %s\n", strerror(errno));*/
         err(127, 0); /* Exec failure -- why might this happen? */
         assert(0);   /* UNREACHABLE -- This should never be reached ABORT! */
       }

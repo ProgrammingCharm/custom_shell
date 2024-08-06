@@ -413,7 +413,7 @@ run_command_list(struct command_list *cl)
      * [TODO] Update upstream_pipefd initializer to get the (READ) side of the
      *        pipeline saved from the previous command
      */
-    int const upstream_pipefd = pipeline_data.pipe_fd; /*Updated this with pipeline_data.pipe_fd as opposed to -1 */
+    int const upstream_pipefd = -1; /*Changed back to -1/ Updated this with pipeline_data.pipe_fd as opposed to -1 */
     int const has_upstream_pipe = (upstream_pipefd >= 0);
     /* If the current command is a pipeline command, create a new pipe on
      * pipe_fds[].
@@ -432,12 +432,14 @@ run_command_list(struct command_list *cl)
      *
      * [TODO] Handle errors that occur
      */
-    int pipe_fds[2] = {-1, -1};
-    if (pipe(pipe_fds) < 0){
-      goto err; 
+    int pipe_fds[2] = {-1, -1}; 
+    if (is_pl){ /* Added this check, and only create a new pipe if current command is a pipeline */
+      if (pipe(pipe_fds) < 0){
+        goto err;
+      }
     }
     /* Grab the WRITE side of the pipeline we just created */
-    int const downstream_pipefd = pipe_fds[STDOUT_FILENO];
+    int const downstream_pipefd = pipe_fds[STDOUT_FILENO]; 
     int const has_downstream_pipe = (downstream_pipefd >= 0);
     /*Store the READ side of the pipeline we just created. The next command will need to use this. */
     pipeline_data.pipe_fd = pipe_fds[STDIN_FILENO];

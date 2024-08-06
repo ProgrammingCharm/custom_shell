@@ -325,9 +325,9 @@ do_io_redirects(struct command *cmd)
                                  downcasting */
         ) {
           /* TODO duplicate src to dst. */
-          int src = (int)src; /* Thought I should cast long src to int src to be used by dup2() */
-          int dst; /* dst needs to be an int so I can use dup2() and move_fd() which take ints */
-          if (dup2(src, dst) == -1) goto err;
+          int src_fd = (int)src; /* Thought I should cast long src to int src to be used by dup2() */
+          int dst = r->io_number; /* set dst based on r->io_number... dst needs to be an int so I can use dup2() and move_fd() which take ints */
+          if (dup2(src_fd, dst) == -1) goto err;
         } else {
           /* XXX Syntax error--(not a valid number)--we can "recover" by
            * attempting to open a file instead. That's what bash does.
@@ -351,7 +351,7 @@ do_io_redirects(struct command *cmd)
 
       /* TODO Move the opened file descriptor to the redirection target */
       /* XXX use move_fd() */
-      int dst; /* Declared dst again here, also on line 313 before dup2 */
+      int dst = r->io_number; /* set dst based on io_number... Declared dst again here, also on line 313 before dup2 */
       if (move_fd(opened_fd, dst) == -1) goto err;
     }
     if (0) {

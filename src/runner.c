@@ -554,14 +554,16 @@ run_command_list(struct command_list *cl)
          */
                                     
         if (upstream_pipefd >= 0){                            /* move_fd helps here, handle errors. */
-          if (move_fd(upstream_pipefd, STDIN_FILENO) < 0){
+          if (dup2(upstream_pipefd, STDIN_FILENO) < 0){ /* trying dup2 if move_fd isn't ideal */
             goto err;
           }
+          close(upstream_pipefd); /* Of course, have to close manually */
         }
         if (downstream_pipefd >= 0){
-          if (move_fd(downstream_pipefd, STDOUT_FILENO) < 0){
+          if (dup2(downstream_pipefd, STDOUT_FILENO) < 0){
             goto err;
           }
+          close(downstream_pipefd);
         }
 
         /* Now handle the remaining redirect operators from the command. */

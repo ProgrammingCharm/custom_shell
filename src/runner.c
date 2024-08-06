@@ -413,7 +413,7 @@ run_command_list(struct command_list *cl)
      * [TODO] Update upstream_pipefd initializer to get the (READ) side of the
      *        pipeline saved from the previous command
      */
-    int const upstream_pipefd = pipeline_data.pipe_fd; /*Changed back to -1/ Updated this with pipeline_data.pipe_fd as opposed to -1 */
+    int const upstream_pipefd = pipeline_data.pipe_fd; /*Updated this with pipeline_data.pipe_fd as opposed to -1 */
     int const has_upstream_pipe = (upstream_pipefd >= 0);
     /* If the current command is a pipeline command, create a new pipe on
      * pipe_fds[].

@@ -553,17 +553,15 @@ run_command_list(struct command_list *cl)
          * [TODO] move downstream_pipefd to STDOUT_FILENO if it's valid
          */
                                     
-        if (upstream_pipefd >= 0){                            /* move_fd helps here, handle errors. */
-          if (dup2(upstream_pipefd, STDIN_FILENO) < 0){ /* trying dup2 if move_fd isn't ideal */
+        if (has_upstream_pipe){                            /* move_fd helps here, handle errors. */
+          if (move_fd(upstream_pipefd, STDIN_FILENO) < 0){ /* Trying has_upstream_pipe instead of other var */
             goto err;
           }
-          close(upstream_pipefd); /* Of course, have to close manually */
         }
-        if (downstream_pipefd >= 0){
-          if (dup2(downstream_pipefd, STDOUT_FILENO) < 0){
+        if (has_downstream_pipe){
+          if (move_fd(downstream_pipefd, STDOUT_FILENO) < 0){
             goto err;
           }
-          close(downstream_pipefd);
         }
 
         /* Now handle the remaining redirect operators from the command. */
